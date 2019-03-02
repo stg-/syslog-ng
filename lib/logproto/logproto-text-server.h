@@ -25,6 +25,8 @@
 #define LOGPROTO_TEXT_SERVER_INCLUDED
 
 #include "logproto-buffered-server.h"
+#include <signal.h>
+#include <time.h>
 
 enum
 {

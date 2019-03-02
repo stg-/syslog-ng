@@ -212,6 +212,19 @@ log_proto_text_server_split_buffer(LogProtoTextServer *self, LogProtoBufferedSer
     }
 
 }
+//
+//void ALARMhandler(LogProtoTextServer *self, LogProtoBufferedServerState *state,
+//                                  const guchar *buffer_start, const guchar *eol, gsize *msg_len, int sig)
+
+void ALARMhandler(int sig)
+{
+  signal(SIGALRM, SIG_IGN);          /* ignore this signal       */
+  /* value = "BYE";
+  msg_debug(value);*/
+  rewind_extracted();
+
+  signal(SIGALRM, ALARMhandler);     /* reinstall the handler    */
+}
 
 static gboolean
 log_proto_text_server_try_extract(LogProtoTextServer *self, LogProtoBufferedServerState *state,
@@ -224,6 +237,7 @@ log_proto_text_server_try_extract(LogProtoTextServer *self, LogProtoBufferedServ
   next_line_pos = eol + 1 - self->super.buffer;
   if (state->pending_buffer_end != next_line_pos)
     {
+      msg_debug("STG: state->pending_buffer_end != next_line_pos");
       const guchar *eom;
 
       /* we have some more data in the buffer, check if we have a
@@ -233,6 +247,7 @@ log_proto_text_server_try_extract(LogProtoTextServer *self, LogProtoBufferedServ
 
       eom = find_eom(self->super.buffer + next_line_pos, state->pending_buffer_end - next_line_pos);
       if (eom)
+        msg_debug("STG: eom");
         next_eol_pos = eom - self->super.buffer;
     }
 
@@ -242,8 +257,10 @@ log_proto_text_server_try_extract(LogProtoTextServer *self, LogProtoBufferedServ
   verdict = log_proto_text_server_accumulate_line(self, *msg, *msg_len, self->consumed_len);
   if (verdict & LPT_EXTRACTED)
     {
+      msg_debug("STG: verdict & LPT_EXTRACTED");
       if (verdict & LPT_CONSUME_LINE)
         {
+          msg_debug("  STG: verdict & LPT_CONSUME_LINE");
           gint drop_length = (verdict & LPT_CONSUME_PARTIAL_AMOUNT_MASK) >> LPT_CONSUME_PARTIAL_AMOUNT_SHIFT;
 
           state->pending_buffer_pos = next_line_pos;
@@ -253,6 +270,8 @@ log_proto_text_server_try_extract(LogProtoTextServer *self, LogProtoBufferedServ
         }
       else if (verdict & LPT_REWIND_LINE)
         {
+          msg_debug("  STG: verdict & LPT_REWIND_LINE");
+
           if (self->consumed_len >= 0)
             *msg_len = self->consumed_len;
           else
@@ -262,28 +281,145 @@ log_proto_text_server_try_extract(LogProtoTextServer *self, LogProtoBufferedServ
           self->cached_eol_pos = eol - self->super.buffer;
         }
       else
-        g_assert_not_reached();
+        {
+          msg_debug("  STG: else");
+          g_assert_not_reached();
+      }
       self->consumed_len = -1;
     }
   else if (verdict & LPT_WAITING)
     {
+      /*
+      int msec = 0, trigger = 10000;
+      clock_t before = clock();
+      msg_debug("STG: Waiting 10 seconds");
+      do
+        {
+          clock_t difference = clock() - before;
+          msec = difference * 1000 / CLOCKS_PER_SEC;
+        }
+      while (msec < trigger);
+      */
+
+      msg_debug("STG: verdict & LPT_WAITING");
+
       *msg = NULL;
       *msg_len = 0;
       if (verdict & LPT_CONSUME_LINE)
         {
+          msg_debug("  STG: verdict & LPT_CONSUME_LINE");
+
+          /* TODO: If there's a line in buffer,
+            activate non-blocking timer=10sec event= LPT_REWIND_LINE | LPT_EXTRACTED */
+          /*
+          msg_debug("  STG: ", evt_tag_int("consumed_len",self->consumed_len));
+          if (self->consumed_len > 0)
+            {
+              msg_debug("STG: BUFFER not empty");
+              msg_debug("STG: Setting ALARM");
+              signal(SIGALRM, ALARMhandler);
+              alarm(10);
+              msg_debug("STG: END Setting ALARM");
+            }
+          */
+
+          /* TODO: loop waiting for new input line */
+
+          int buffer_state = buffer_bytes;
+
+//          int msec = 0, trigger = 5000;
+//          clock_t before = clock();
+//          msg_debug("STG: Waiting 10 seconds");
+//          do
+//            {
+//              clock_t difference = clock() - before;
+//              msec = difference * 1000 / CLOCKS_PER_SEC;
+//            }
+//          while (buffer_bytes == buffer_state && msec < trigger);
+
+//          if (msec < trigger)
+//          {
+//          /* TODO: new line arrived just in time */
+//          msg_debug("STG: new line arrived just in time");
+//          }
+//          else
+//          {
+//          /* TODO: time expired! */
+//          msg_debug("STG: time expired");
+//          }
+
+          /*
+          if (log_proto_text_server_try_extract(self, state, buffer_start, buffer_bytes, eol, msg, msg_len))
+            {
+              msg_debug("STG: EXTRACTION POSSIBLE");
+            }
+          else
+            {
+              msg_debug("STG: EXTRACTION NOT POSSIBLE");
+            }
+            */
+
+          // TODO: !!! To inject a new line?
+          // self = LogProtoTextServer which has a LogProtoBufferedServer (super), which has a
+          //  LogProtoServer (super) which has a LogTransport (transport) which has an gint fd. Can we write into that fd??
+          msg_debug("  STG3: ", evt_tag_int("fd",self->super.super.transport->fd));
+
+          //fprintf(self->super.super.transport->fd, "TEST STG AAAAABC");
+
+          // log_transport_write
+          // log_transport_read
+
+          strcat(self->super.buffer, "A");
+          msg_debug("  STG3: ", evt_tag_int("next_line_pos",next_line_pos));
+          msg_debug("  STG3: ", evt_tag_int("pending_buffer_end",state->pending_buffer_end));
+          msg_debug("  STG3: ", evt_tag_int("consumed_len",self->consumed_len));
+          msg_debug("  STG3: ", evt_tag_int("buffer_bytes",buffer_bytes));
+          msg_debug("  STG3: ", evt_tag_int("buffer_start",buffer_start));
+          msg_debug("  STG3: ", evt_tag_str("eol",eol));
+          if (buffer_bytes != 0)
+          {
+            msg_debug("STGG: message comming!!");
+          }
+
+          /*
+          msg_debug("STGG: REWIND IT!!")
+          if (self->consumed_len >= 0)
+            *msg_len = self->consumed_len;
+          else
+            *msg_len = 0;
+
+          state->pending_buffer_pos = (buffer_start + self->consumed_len + 1) - self->super.buffer;
+          self->cached_eol_pos = eol - self->super.buffer;
+          msg_debug("STGG: END REWIND IT!!")
+          */
+
+          /* TODO: This handles the incoming and outgoing??? */
           self->cached_eol_pos = next_eol_pos;
           self->consumed_len = eol - buffer_start;
+
+          msg_debug("  STG4: ", evt_tag_int("consumed_len",self->consumed_len));
+          msg_debug("  STG4: ", evt_tag_int("buffer_bytes",buffer_bytes));
+          msg_debug("  STG4: ", evt_tag_int("buffer_start",buffer_start));
+          msg_debug("  STG4: ", evt_tag_str("eol",eol));
+
+          msg_debug("  STG: ENDIF verdict & LPT_CONSUME_LINE");
         }
       else
         {
+          msg_debug("  STG: else");
           /* when we are waiting for another line, the current one
            * can't be rewinded, so LPT_REWIND_LINE is not valid */
           g_assert_not_reached();
         }
+      msg_debug("STG: return FALSE");
       return FALSE;
     }
   else
-    g_assert_not_reached();
+    {
+      msg_debug("STG: else");
+      g_assert_not_reached();
+    }
+  msg_debug("STG: return TRUE");
   return TRUE;
 }
 
@@ -293,11 +429,21 @@ log_proto_text_server_extract(LogProtoTextServer *self, LogProtoBufferedServerSt
 {
   do
     {
+      msg_debug("STG: Start do");
+      msg_debug("  STG5: ", evt_tag_int("cached_eol_pos",self->cached_eol_pos));
+      msg_debug("  STG5: ", evt_tag_str("super.buffer",self->super.buffer));
+      alarm(0);
+      msg_debug("STG: Alarm deactivated");
       if (log_proto_text_server_try_extract(self, state, buffer_start, buffer_bytes, eol, msg, msg_len))
+        {
+        msg_debug("STG: try extract OK");
         return TRUE;
+        }
+      msg_debug("STG: try extract FAILED");
       eol = self->super.buffer + self->cached_eol_pos;
     }
   while (self->cached_eol_pos > 0);
+  msg_debug("STG:quit while");
   return FALSE;
 }
 
@@ -369,6 +515,7 @@ static gboolean
 log_proto_text_server_fetch_from_buffer(LogProtoBufferedServer *s, const guchar *buffer_start, gsize buffer_bytes,
                                         const guchar **msg, gsize *msg_len)
 {
+  msg_debug("STG: log_proto_text_server_fetch_from_buffer");
   LogProtoTextServer *self = (LogProtoTextServer *) s;
   LogProtoBufferedServerState *state = log_proto_buffered_server_get_state(&self->super);
   gboolean result = FALSE;
@@ -418,6 +565,23 @@ log_proto_text_server_free(LogProtoServer *s)
 
   g_free(self->reverse_buffer);
   log_proto_buffered_server_free_method(&self->super.super);
+}
+
+void rewind_extracted()
+{
+  /*
+  if (self->consumed_len >= 0)
+    *msg_len = self->consumed_len;
+  else
+    *msg_len = 0;
+
+  state->pending_buffer_pos = (buffer_start + self->consumed_len + 1) - self->super.buffer;
+  self->cached_eol_pos = eol - self->super.buffer;
+  */
+  //log_proto_text_server_fetch_from_buffer;
+
+  msg_debug("STG: ALERT!!!");
+  msg_debug("STG: LPT_REWIND_LINE | LPT_EXTRACTED");
 }
 
 void

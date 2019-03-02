@@ -65,6 +65,18 @@ log_proto_indented_multiline_accumulate_line(LogProtoTextServer *s,
         }
       else
         {
+          /*
+          int msec = 0, trigger = 10000;
+          clock_t before = clock();
+          msg_debug("STG: Waiting 10 seconds");
+          do
+            {
+              clock_t difference = clock() - before;
+              msec = difference * 1000 / CLOCKS_PER_SEC;
+            }
+          while (msec < trigger);
+          */
+
           return LPT_REWIND_LINE | LPT_EXTRACTED;
         }
     }
